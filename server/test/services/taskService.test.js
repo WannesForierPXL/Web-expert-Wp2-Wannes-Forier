@@ -165,5 +165,62 @@ describe('taskService', () => {
             populateSpy.mockRestore();
         });
     });
+
+    describe('assignTask', () => {
+        test.each(invalidIds)(
+            'given an invalid taskId it should throw a ValidationError',
+            async (id) => {
+                await expect(taskService.assignTask(id, uuid.v4()))
+                    .rejects.toThrow(ValidationError);
+            });
+
+        test.each(invalidIds)(
+            'given an invalid userId it should throw a ValidationError',
+            async (id) => {
+                await expect(taskService.assignTask(uuid.v4(), id))
+                    .rejects.toThrow(ValidationError);
+            });
+
+        it('throws a ValidationError when userId is missing', async () => {
+            await expect(taskService.assignTask(uuid.v4(), undefined))
+                .rejects.toThrow(ValidationError);
+        });
+
+        it('throws a NotFoundError when the task does not exist', async () => {
+            mockingoose(Task).toReturn(null, 'findOne');
+            await expect(taskService.assignTask(uuid.v4(), uuid.v4()))
+                .rejects.toThrow(NotFoundError);
+        });
+
+        it('throws a NotFoundError when the user does not exist', async () => {
+            mockingoose(Task).toReturn(new Task({todo: 'task one'}), 'findOne');
+            mockingoose(User).toReturn(null, 'findOne');
+            await expect(taskService.assignTask(uuid.v4(), uuid.v4()))
+                .rejects.toThrow(NotFoundError);
+        });
+
+        it('throws a ValidationError when the user does not have the role user', async () => {
+            const admin = new User({username: 'admin1', password: 'password', roles: ['admin']});
+            mockingoose(Task).toReturn(new Task({todo: 'task one'}), 'findOne');
+            mockingoose(User).toReturn(admin, 'findOne');
+            await expect(taskService.assignTask(uuid.v4(), admin._id))
+                .rejects.toThrow(ValidationError);
+        });
+
+        it('assigns the task to the user and saves it', async () => {
+            const user = new User({username: 'user1', password: 'password', roles: ['user']});
+            const task = new Task({todo: 'task one'});
+            mockingoose(Task).toReturn(task, 'findOne');
+            mockingoose(User).toReturn(user, 'findOne');
+            jest.spyOn(Task.prototype, 'save').mockImplementation(function () {
+                return Promise.resolve(this);
+            });
+
+            const result = await taskService.assignTask(task._id, user._id);
+
+            expect(result.userId).toBe(user._id);
+            expect(Task.prototype.save).toHaveBeenCalledTimes(1);
+        });
+    });
 });
 

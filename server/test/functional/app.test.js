@@ -4,6 +4,7 @@ const {MongoClient} = require("mongodb");
 const {MongoMemoryServer} = require("mongodb-memory-server");
 
 const request = require("supertest");
+const uuid = require('uuid');
 const mongoose = require("mongoose");
 
 const loadExpress = require("../../loaders/express.js");
@@ -362,5 +363,105 @@ describe("app", () => {
         });
     });
 
+    describe("PATCH /task/:taskId/user", () => {
+        async function loginAs({username, password}) {
+            const response = await request(app)
+                .post("/security/login")
+                .send({username, password});
+            return response.headers['set-cookie'].pop().split(';')[0];
+        }
 
+        const unassignedTask = tasks[2];
+        const targetUser = usersIncludingPasswords[1];
+
+        it("should return statuscode 401 if no token is provided", async () => {
+            await resetDatabase();
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .send({userId: targetUser._id})
+                .expect(401);
+        });
+
+        it("should return statuscode 403 when a regular user tries to assign a task", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(usersIncludingPasswords[0]);
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: targetUser._id})
+                .expect(403);
+        });
+
+        it("should return statuscode 200 and the updated task when an admin assigns a task", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            const response = await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: targetUser._id})
+                .expect(200);
+            expect(response.body._id).toBe(unassignedTask._id);
+            expect(response.body.userId).toBe(targetUser._id);
+        });
+
+        it("should return statuscode 200 when an admin reassigns an already assigned task", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            const response = await request(app)
+                .patch(`/task/${tasks[0]._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: targetUser._id})
+                .expect(200);
+            expect(response.body.userId).toBe(targetUser._id);
+        });
+
+        it("should return statuscode 400 when userId is not a valid uuid", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: "abc"})
+                .expect(400);
+        });
+
+        it("should return statuscode 400 when no body is sent", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .expect(400);
+        });
+
+        it("should return statuscode 400 when the task is assigned to an admin", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: admin._id})
+                .expect(400);
+        });
+
+        it("should return statuscode 404 when the task does not exist", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch(`/task/${uuid.v4()}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: targetUser._id})
+                .expect(404);
+        });
+
+        it("should return statuscode 404 when the user does not exist", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: uuid.v4()})
+                .expect(404);
+        });
+    });
 });
