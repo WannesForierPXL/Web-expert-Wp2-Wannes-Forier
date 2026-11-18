@@ -1,7 +1,7 @@
 const mongoose = require('mongoose');
 mongoose.set('strictQuery', true);
 const mockingoose = require('mockingoose');
-const ObjectId = mongoose.Types.ObjectId;
+const uuid = require('uuid');
 const Task = require('../../models/taskModel');
 const User = require('../../models/userModel');
 
@@ -21,7 +21,7 @@ describe('taskService', () => {
             'given invalid id it should throw a ValidationError',
             async (id) => {
                 const requestingUser = {
-                    _id: new ObjectId(),
+                    _id: uuid.v4(),
                     username: 'testuser',
                     roles: ['user']
                 }
@@ -64,7 +64,7 @@ describe('taskService', () => {
         it('throws a NotFoundError when the task does not exist', async () => {
             const user = new User({username: 'testuser', password: 'password'});
             const requestingUser = {_id: user._id, username: user.username, roles: user.roles};
-            const taskId = new ObjectId().toString();
+            const taskId = uuid.v4();
             mockingoose(Task).toReturn(null, 'findOne');
             mockingoose(User).toReturn(user, 'findOne');
             await expect(taskService.updateTask(taskId, requestingUser._id.toString(), {completed: true}))
@@ -74,7 +74,7 @@ describe('taskService', () => {
         it('throws an AuthorisationError when the task doesn\'t belong to the user', async () => {
             const user = new User({username: 'testuser', password: 'password', roles: ['user']});
             const requestingUser = {_id: user._id, username: user.username, roles: user.roles};
-            const task = new Task({todo: 'do something', userId: new ObjectId()});
+            const task = new Task({todo: 'do something', userId: uuid.v4()});
             const taskId = task._id.toString();
             mockingoose(Task).toReturn(task, 'findOne');
             mockingoose(User).toReturn(user, 'findOne');
@@ -85,13 +85,13 @@ describe('taskService', () => {
         it('throws an AuthorisationError when a regular user tries to reassign the task', async () => {
             const user = new User({username: 'testuser', password: 'password', roles: ['user']});
             const requestingUser = {_id: user._id, username: 'testuser', roles: ['user']};
-            const task = new Task({todo: 'do something', userId: new ObjectId()});
+            const task = new Task({todo: 'do something', userId: uuid.v4()});
             const updatedTask = new Task({task: task.todo, userId: task.userId, completed: true});
             const taskId = task._id.toString();
             task.userId = user._id;
             mockingoose(Task).toReturn(task, 'findOne');
             mockingoose(User).toReturn(user, 'findOne');
-            await expect(taskService.updateTask(taskId, requestingUser._id.toString(), {userId: new ObjectId()}))
+            await expect(taskService.updateTask(taskId, requestingUser._id.toString(), {userId: uuid.v4()}))
                 .rejects.toThrow(AuthorisationError);
         });
 
@@ -111,7 +111,7 @@ describe('taskService', () => {
             async () => {
                 const user = new User({username: 'testuser', password: 'password', roles: ['user']});
                 const requestingUser = {_id: user._id, username: 'testuser', roles: ['user']};
-                const task = new Task({todo: 'do something', userId: new ObjectId()});
+                const task = new Task({todo: 'do something', userId: uuid.v4()});
                 const updatedTask = new Task({task: task.todo, userId: task.userId, completed: true});
                 const taskId = task._id.toString();
                 task.userId = user._id;
@@ -130,7 +130,7 @@ describe('taskService', () => {
             async () => {
                 const user = new User({username: 'testuser', password: 'password', roles: ['user']});
                 const requestingUser = {_id: user._id, username: 'testuser', roles: ['user']};
-                const task = new Task({todo: 'do something', userId: new ObjectId()});
+                const task = new Task({todo: 'do something', userId: uuid.v4()});
                 const updatedTask = new Task({todo: 'do something else', userId: task.userId});
                 const taskId = task._id.toString();
                 task.userId = user._id;

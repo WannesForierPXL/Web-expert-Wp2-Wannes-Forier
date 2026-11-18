@@ -1,6 +1,5 @@
 const mongoose = require('mongoose');
 mongoose.set('strictQuery', true);
-const ObjectId = mongoose.Types.ObjectId;
 const Task = require('../../models/taskModel');
 const User = require('../../models/userModel');
 

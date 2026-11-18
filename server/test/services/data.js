@@ -1,9 +1,6 @@
-const mongoose = require('mongoose');
-const ObjectId = mongoose.Types.ObjectId;
-
 const invalidIds = [
     [''], ['12'],
-    ['61a9079ed842a2429ae53d8'],
+    ['61a9079ed842a2429ae53d82'],
     ['429ae53d844', 12, null]
 ];
 
