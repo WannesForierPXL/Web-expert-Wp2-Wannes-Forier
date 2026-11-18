@@ -14,21 +14,21 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
-import { useStore } from '@/stores/index';
+import { useSecurityStore } from '@/stores/securityStore';
 
 export default {
   setup() {
-    const appStore = useStore();
+    const securityStore = useSecurityStore();
     
     const errorMessage = ref('');
     
 
-    const user = computed(() => appStore.user);
-    const loading = computed(() => appStore.loading);
+    const user = computed(() => securityStore.user);
+    const loading = computed(() => securityStore.loading);
 
     onMounted(async () => {
       try {
-        await appStore.checkLogin();
+        await securityStore.checkLogin();
       } catch (error) {
         errorMessage.value = error.message || 'Failed to verify login status';
       }
@@ -36,7 +36,7 @@ export default {
 
     const logout = async () => {
       try {
-        await appStore.logout();
+        await securityStore.logout();
       } catch (error) {
         errorMessage.value = error.message || 'Failed to log out';
       }

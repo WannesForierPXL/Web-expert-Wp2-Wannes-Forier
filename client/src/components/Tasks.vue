@@ -41,7 +41,8 @@
 
 <script>
 import { ref, computed, onMounted } from 'vue';
-import { useStore } from '@/stores/index';
+import { useSecurityStore } from '@/stores/securityStore';
+import { useTaskStore } from '@/stores/taskStore';
 import UpdatableTask from './UpdatableTask.vue';
 
 export default {
@@ -49,7 +50,8 @@ export default {
     UpdatableTask,
   },
   setup() {
-    const appStore = useStore();
+    const securityStore = useSecurityStore();
+    const taskStore = useTaskStore();
 
     // Reactive properties for form input and error handling
     const username = ref('');
@@ -57,14 +59,14 @@ export default {
     const errorMessage = ref('');
 
     // Computed properties for store state
-    const user = computed(() => appStore.user);
-    const tasks = computed(() => appStore.tasks);
-    const loading = computed(() => appStore.loading);
+    const user = computed(() => securityStore.user);
+    const tasks = computed(() => taskStore.tasks);
+    const loading = computed(() => securityStore.loading || taskStore.loading);
 
     // Check login status on mount
     onMounted(async () => {
       try {
-        await appStore.checkLogin();
+        await securityStore.checkLogin();
       } catch (error) {
         errorMessage.value = error.message || 'Failed to verify login status';
       }
@@ -74,7 +76,7 @@ export default {
     const login = async () => {
       try {
         errorMessage.value = ''; // Clear previous errors
-        await appStore.login({ username: username.value, password: password.value });
+        await securityStore.login({ username: username.value, password: password.value });
         username.value = '';
         password.value = '';
       } catch (error) {
@@ -86,7 +88,8 @@ export default {
     const logout = async () => {
       try {
         errorMessage.value = ''; // Clear previous errors
-        await appStore.logout();
+        await securityStore.logout();
+        taskStore.clear();
         username.value = '';
         password.value = '';
       } catch (error) {
@@ -98,7 +101,7 @@ export default {
     const retrieveTasks = async () => {
       try {
         errorMessage.value = ''; // Clear previous errors
-        await appStore.retrieveOwnTasks();
+        await taskStore.retrieveOwnTasks();
       } catch (error) {
         errorMessage.value = error.message || 'Failed to retrieve tasks';
       }
@@ -108,7 +111,7 @@ export default {
     const handleTaskUpdate = async ({ taskId, completed }) => {
       try {
         errorMessage.value = ''; // Clear previous errors
-        await appStore.changeCompleted(taskId, completed);
+        await taskStore.changeCompleted(taskId, completed);
       } catch (error) {
         errorMessage.value = error.message || 'Failed to update task';
       }
