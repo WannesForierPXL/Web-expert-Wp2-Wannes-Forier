@@ -38,6 +38,15 @@ async function run() {
         task2.userId = user1._id;
         await task2.save();
 
+        let user3 = new User({username: 'jan', password: 'jan123', roles: ['user']});
+        await user3.save();
+        let task4 = new Task({todo: 'buy groceries', userId: user3._id});
+        await task4.save();
+        let task5 = new Task({todo: 'walk the dog', userId: user3._id, completed: true});
+        await task5.save();
+        let task6 = new Task({todo: 'fix the bike'});
+        await task6.save();
+
         let users = await User.find({});
         console.log('users');
         console.log(users);

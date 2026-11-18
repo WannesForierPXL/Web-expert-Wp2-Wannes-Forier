@@ -28,5 +28,8 @@ Open http://localhost:8080/ in de browser
 username: user
 password: user123
 
+username: jan
+password: jan123
+
 username: admin
 password: admin123
