@@ -1,21 +1,11 @@
 <script setup>
-import { RouterLink, RouterView } from 'vue-router'
-import Home from './components/Home.vue'
+import { RouterView } from 'vue-router';
+import NavBar from '@/components/NavBar.vue';
 </script>
 
 <template>
-  <header>
-    <div class="wrapper">
-      <nav>
-        <RouterLink to="/">Home</RouterLink>       
-        <RouterLink to="/tasks">Tasks</RouterLink>
-      </nav>    
-    </div>
-  </header>
-
-  <RouterView />
+  <NavBar />
+  <main class="container py-4">
+    <RouterView />
+  </main>
 </template>
-
-<style scoped>
-
-</style>
