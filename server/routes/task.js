@@ -5,7 +5,7 @@ const bodyParser = require("body-parser");
 const taskController = require("../controllers/taskController");
 const {authenticate, authorize} = require("../middleware/authentication");
 
-router.get("/",
+router.get("/me",
     cookieParser(),
     authenticate,
     authorize('user'),
@@ -24,7 +24,7 @@ router.patch("/:taskId",
     taskController.updateTaskCompletion
 );
 
-router.get("/all",
+router.get("/",
     cookieParser(),
     authenticate,
     authorize('admin'),

@@ -116,12 +116,12 @@ describe("app", () => {
         });
     });
 
-    describe("GET /task", () => {
+    describe("GET /task/me", () => {
         usersIncludingPasswords.forEach((user, index) => {
             it(`should return statuscode 401 if no token is provided for user ${index + 1}`, async () => {
                 await resetDatabase();
                 await request(app)
-                    .get(`/task`)
+                    .get(`/task/me`)
                     .expect(401);
             });
 
@@ -129,7 +129,7 @@ describe("app", () => {
                 await resetDatabase();
                 const token = "invalidtoken";
                 await request(app)
-                    .get(`/task`)
+                    .get(`/task/me`)
                     .set("Cookie", [`token=${token}`])
                     .send()
                     .expect(401);
@@ -139,7 +139,7 @@ describe("app", () => {
                 await resetDatabase();
                 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30";
                 await request(app)
-                    .get(`/task`)
+                    .get(`/task/me`)
                     .set("Cookie", [`token=${token}`])
                     .send()
                     .expect(401);
@@ -157,7 +157,7 @@ describe("app", () => {
                 expect(cookie).toMatch(/^token=/);
                 const token = cookie.substring(6);
                 const response2 = await request(app)
-                    .get(`/task/`)
+                    .get(`/task/me`)
                     .set("Cookie", [`token=${token}`])
                     .send();
                 const actualTasks = response2.body;
@@ -310,11 +310,11 @@ describe("app", () => {
         });
     });
 
-    describe("GET /task/all", () => {
+    describe("GET /task", () => {
         it("should return statuscode 401 if no token is provided", async () => {
             await resetDatabase();
             await request(app)
-                .get("/task/all")
+                .get("/task")
                 .expect(401);
         });
 
@@ -327,7 +327,7 @@ describe("app", () => {
                     .send({username, password});
                 const cookie = response.headers['set-cookie'].pop().split(';')[0];
                 await request(app)
-                    .get("/task/all")
+                    .get("/task")
                     .set("Cookie", [cookie])
                     .expect(403);
             });
@@ -342,7 +342,7 @@ describe("app", () => {
             const cookie = response.headers['set-cookie'].pop().split(';')[0];
 
             const response2 = await request(app)
-                .get("/task/all")
+                .get("/task")
                 .set("Cookie", [cookie])
                 .expect(200);
 
