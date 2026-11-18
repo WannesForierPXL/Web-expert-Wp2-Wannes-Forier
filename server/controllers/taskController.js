@@ -34,5 +34,17 @@ async function getAllTasks(req, res, next) {
     }
 }
 
-module.exports = {getTasksOfUser, updateTaskCompletion, getAllTasks};
+async function assignTaskToUser (req, res, next) {
+    try {
+        const status = 200;
+        const {taskId} = req.params;
+        const {userId} = req.body;
+        const task = await taskService.assignTask(taskId, userId);
+        res.status(status).json(task);
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = {getTasksOfUser, updateTaskCompletion, getAllTasks, assignTaskToUser};
 
