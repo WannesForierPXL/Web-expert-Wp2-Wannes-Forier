@@ -1,4 +1,3 @@
-const mongoose = require('mongoose');
 const {ValidationError, AuthenticationError} = require('../errors/error');
 const User = require('../models/userModel.js');
 

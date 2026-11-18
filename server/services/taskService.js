@@ -1,22 +1,20 @@
-const mongoose = require("mongoose");
 const {ValidationError, AuthorisationError, NotFoundError} = require("../errors/error");
+const uuid = require('uuid');
 
 const Task = require("../models/taskModel.js");
 
-const ObjectId = mongoose.Types.ObjectId;
-
 async function findByUserId(requestingUserId) {
-    if (!ObjectId.isValid(requestingUserId)) {
+    if (!uuid.validate(requestingUserId)) {
         throw new ValidationError('Id is not valid');
     }
     return Task.find({userId: requestingUserId});
 }
 
 async function updateTask(taskId, requestingUserId, {completed, todo, userId}) {
-    if (!ObjectId.isValid(taskId)) {
+    if (!uuid.validate(taskId)) {
         throw new ValidationError('Id is not valid');
     }
-    if (!ObjectId.isValid(requestingUserId)) {
+    if (!uuid.validate(requestingUserId)) {
         throw new ValidationError('Id is not valid');
     }
 
