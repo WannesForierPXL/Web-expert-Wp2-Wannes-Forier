@@ -37,4 +37,12 @@ const tasks = [
     }
 ];
 
-module.exports = {usersIncludingPasswords, tasks};
+const admin = {
+    _id: "e3b1c7a2-5d4f-4c8e-9a6b-1f2d3c4b5a69",
+    username: "admin1",
+    roles: ["admin"],
+    password: "admin123",
+    hashedPassword: bcrypt.hashSync("admin123", 8)
+};
+
+module.exports = {usersIncludingPasswords, tasks, admin};

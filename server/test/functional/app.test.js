@@ -11,7 +11,7 @@ const DATABASE_CONNECTION = process.env.DATABASE_CONNECTION_TEST;
 const DB_CONNECTION_OPTIONS = JSON.parse(process.env.DATABASE_CONNECTION_OPTIONS);
 const CORS_OPTIONS = JSON.parse(process.env.CORS_OPTIONS);
 
-const {usersIncludingPasswords, tasks} = require("./data");
+const {usersIncludingPasswords, admin, tasks} = require("./data");
 
 let mongServer, uri, client, app;
 
@@ -35,7 +35,7 @@ async function resetDatabase() {
     db = client.db(dbName);
     await db.dropDatabase();
     await db.collection('users').insertMany(
-        usersIncludingPasswords.map((u) => ({
+        [...usersIncludingPasswords, admin].map((u) => ({
             _id: u._id,
             username: u.username,
             roles: u.roles,
@@ -257,6 +257,56 @@ describe("app", () => {
                         .expect(403)
                 });
             }
+        });
+    });
+    describe("GET /user", () => {
+        it("should return statuscode 401 if no token is provided", async () => {
+            await resetDatabase();
+            await request(app)
+                .get("/user")
+                .expect(401);
+        });
+
+        it("should return statuscode 401 when an invalid token is provided", async () => {
+            await resetDatabase();
+            await request(app)
+                .get("/user")
+                .set("Cookie", ["token=invalidtoken"])
+                .expect(401);
+        });
+
+        usersIncludingPasswords.forEach((user, index) => {
+            it(`should return statuscode 403 when a regular user requests all users (user ${index + 1})`, async () => {
+                await resetDatabase();
+                const {username, password} = user;
+                const response = await request(app)
+                    .post("/security/login")
+                    .send({username, password});
+                const cookie = response.headers['set-cookie'].pop().split(';')[0];
+                await request(app)
+                    .get("/user")
+                    .set("Cookie", [cookie])
+                    .expect(403);
+            });
+        });
+
+        it("should return statuscode 200 and all users without hashedPassword for an admin", async () => {
+            await resetDatabase();
+            const {username, password} = admin;
+            const response = await request(app)
+                .post("/security/login")
+                .send({username, password});
+            const cookie = response.headers['set-cookie'].pop().split(';')[0];
+
+            const response2 = await request(app)
+                .get("/user")
+                .set("Cookie", [cookie])
+                .expect(200);
+
+            const actualIds = response2.body.map((u) => u._id).sort();
+            const expectedIds = [...usersIncludingPasswords, admin].map((u) => u._id).sort();
+            expect(actualIds).toEqual(expectedIds);
+            response2.body.forEach((u) => expect(u).not.toHaveProperty('hashedPassword'));
         });
     });
 
