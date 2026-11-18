@@ -13,6 +13,7 @@ const {invalidIds} = require('./data');
 beforeEach(async () => {
     mockingoose.resetAll();
     jest.clearAllMocks();
+    jest.restoreAllMocks()
 });
 
 describe('taskService', () => {
@@ -146,6 +147,23 @@ describe('taskService', () => {
             });
 
 
+    });
+
+    describe('findAll', () => {
+        it('returns all tasks and populates the username of the owner', async () => {
+            const populateSpy = jest.spyOn(mongoose.Query.prototype, 'populate');
+            const tasks = [
+                new Task({todo: 'task one', userId: uuid.v4()}),
+                new Task({todo: 'task two'})
+            ];
+            mockingoose(Task).toReturn(tasks, 'find');
+
+            const result = await taskService.findAll();
+
+            expect(result).toHaveLength(2);
+            expect(populateSpy).toHaveBeenCalledWith('userId', 'username');
+            populateSpy.mockRestore();
+        });
     });
 });
 

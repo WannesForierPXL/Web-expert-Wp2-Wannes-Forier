@@ -310,5 +310,57 @@ describe("app", () => {
         });
     });
 
+    describe("GET /task/all", () => {
+        it("should return statuscode 401 if no token is provided", async () => {
+            await resetDatabase();
+            await request(app)
+                .get("/task/all")
+                .expect(401);
+        });
+
+        usersIncludingPasswords.forEach((user, index) => {
+            it(`should return statuscode 403 when a regular user requests all tasks (user ${index + 1})`, async () => {
+                await resetDatabase();
+                const {username, password} = user;
+                const response = await request(app)
+                    .post("/security/login")
+                    .send({username, password});
+                const cookie = response.headers['set-cookie'].pop().split(';')[0];
+                await request(app)
+                    .get("/task/all")
+                    .set("Cookie", [cookie])
+                    .expect(403);
+            });
+        });
+
+        it("should return statuscode 200 and all tasks with populated username for an admin", async () => {
+            await resetDatabase();
+            const {username, password} = admin;
+            const response = await request(app)
+                .post("/security/login")
+                .send({username, password});
+            const cookie = response.headers['set-cookie'].pop().split(';')[0];
+
+            const response2 = await request(app)
+                .get("/task/all")
+                .set("Cookie", [cookie])
+                .expect(200);
+
+            const actualTasks = response2.body;
+            expect(actualTasks.map((t) => t._id).sort())
+                .toEqual(tasks.map((t) => t._id).sort());
+
+            tasks.forEach((expected) => {
+                const actual = actualTasks.find((t) => t._id === expected._id);
+                if (expected.userId) {
+                    const owner = usersIncludingPasswords.find((u) => u._id === expected.userId);
+                    expect(actual.userId).toEqual({_id: owner._id, username: owner.username});
+                } else {
+                    expect(actual.userId).toBeUndefined();
+                }
+            });
+        });
+    });
+
 
 });
