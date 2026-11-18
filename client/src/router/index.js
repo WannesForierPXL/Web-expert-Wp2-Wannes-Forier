@@ -2,8 +2,7 @@ import { createRouter, createWebHistory } from 'vue-router';
 import { useSecurityStore } from '@/stores/securityStore';
 import LoginView from '@/views/LoginView.vue';
 import MyTasksView from '@/views/MyTasksView.vue';
-import AllTasksView from '@/views/AllTasksView.vue';
-import UsersView from '@/views/UsersView.vue';
+import DashboardView from '@/views/DashboardView.vue';
 
 const router = createRouter({
     history: createWebHistory(import.meta.env.BASE_URL),
@@ -25,15 +24,9 @@ const router = createRouter({
             meta: { role: 'user' }
         },
         {
-            path: '/admin/tasks',
-            name: 'all-tasks',
-            component: AllTasksView,
-            meta: { role: 'admin' }
-        },
-        {
-            path: '/admin/users',
-            name: 'users',
-            component: UsersView,
+            path: '/admin',
+            name: 'dashboard',
+            component: DashboardView,
             meta: { role: 'admin' }
         },
         {
@@ -47,7 +40,7 @@ export function startRouteFor(securityStore) {
     if (!securityStore.isLoggedIn) {
         return { name: 'login' };
     }
-    return securityStore.isAdmin ? { name: 'all-tasks' } : { name: 'my-tasks' };
+    return securityStore.isAdmin ? { name: 'dashboard' } : { name: 'my-tasks' };
 }
 
 let loginChecked = false;

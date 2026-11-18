@@ -3,10 +3,12 @@ import { computed } from 'vue';
 import { RouterLink, useRouter } from 'vue-router';
 import { useSecurityStore } from '@/stores/securityStore';
 import { useTaskStore } from '@/stores/taskStore';
+import { useUserStore } from '@/stores/userStore';
 
 const router = useRouter();
 const securityStore = useSecurityStore();
 const taskStore = useTaskStore();
+const userStore = useUserStore();
 
 const user = computed(() => securityStore.user);
 
@@ -15,6 +17,7 @@ async function logout() {
     await securityStore.logout();
   } finally {
     taskStore.clear();
+    userStore.clear();
     router.push({ name: 'login' });
   }
 }
@@ -41,15 +44,7 @@ async function logout() {
         </button>
 
         <div id="mainNav" class="collapse navbar-collapse">
-          <ul class="navbar-nav me-auto">
-            <li v-if="securityStore.isAdmin" class="nav-item">
-              <RouterLink class="nav-link" active-class="active" :to="{ name: 'users' }">
-                <i class="bi bi-people me-1"></i>Gebruikers
-              </RouterLink>
-            </li>
-          </ul>
-
-          <ul class="navbar-nav">
+          <ul class="navbar-nav ms-auto">
             <li class="nav-item dropdown">
               <a
                 class="nav-link dropdown-toggle d-flex align-items-center"

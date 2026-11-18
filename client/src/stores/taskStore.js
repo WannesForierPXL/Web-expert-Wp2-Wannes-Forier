@@ -8,6 +8,7 @@ const axiosConfig = { withCredentials: true };
 export const useTaskStore = defineStore('task', {
     state: () => ({
         tasks: [],
+        allTasks: [],
         loading: false
     }),
 
@@ -40,8 +41,37 @@ export const useTaskStore = defineStore('task', {
             }
         },
 
+        async retrieveAllTasks() {
+            this.loading = true;
+            try {
+                const response = await axios.get(taskUrl, axiosConfig);
+                this.allTasks = response.data;
+            } catch (error) {
+                throw toStoreError(error, 'Failed to retrieve all tasks');
+            } finally {
+                this.loading = false;
+            }
+        },
+
+        async assignTask(taskId, user) {
+            try {
+                const response = await axios.patch(`${taskUrl}/${taskId}/user`, { userId: user._id }, axiosConfig);
+                const index = this.allTasks.findIndex((task) => task._id === taskId);
+                if (index !== -1) {
+                    // de server geeft userId als uuid terug; voor de lijst tonen we dezelfde vorm als bij populate
+                    this.allTasks[index] = {
+                        ...response.data,
+                        userId: { _id: user._id, username: user.username }
+                    };
+                }
+            } catch (error) {
+                throw toStoreError(error, 'Failed to assign task');
+            }
+        },
+
         clear() {
             this.tasks = [];
+            this.allTasks = [];
         }
     }
 });
