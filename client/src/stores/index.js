@@ -78,7 +78,7 @@ export const useStore = defineStore('store', {
             try {
                 const id = this.user._id;
                 const axiosConfig = {withCredentials: true};
-                const response = await axios.get(`${taskUrl}/`, axiosConfig);
+                const response = await axios.get(`${taskUrl}/me`, axiosConfig);
                 this.tasks = response.data;
             } catch (error) {
                 throw new Error(error.message || 'Failed to retrieve tasks');
