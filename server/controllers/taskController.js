@@ -1,6 +1,6 @@
 const taskService = require("../services/taskService");
 
-module.exports.getTasksOfUser = async function (req, res, next) {
+async function getTasksOfUser (req, res, next) {
     try {
         const status = 200;
         const {requestingUser} = req;
@@ -11,7 +11,7 @@ module.exports.getTasksOfUser = async function (req, res, next) {
     }
 };
 
-module.exports.updateTaskCompletion = async function (req, res, next) {
+async function updateTaskCompletion (req, res, next) {
     try {
         const status = 200;
         const {requestingUser} = req;
@@ -23,4 +23,16 @@ module.exports.updateTaskCompletion = async function (req, res, next) {
         next(err);
     }
 };
+
+async function getAllTasks(req, res, next) {
+    try {
+        const status = 200;
+        const users = await taskService.findAll();
+        res.status(status).json(users);
+    } catch (err) {
+        next(err);
+    }
+}
+
+module.exports = {getTasksOfUser, updateTaskCompletion, getAllTasks};
 
