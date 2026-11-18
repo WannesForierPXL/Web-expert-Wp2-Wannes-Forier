@@ -31,4 +31,16 @@ router.get("/",
     taskController.getAllTasks
 );
 
+router.patch("/:taskId/user",
+    cookieParser(),
+    bodyParser.json(),
+    (req, res, next) => {
+        req.body = req.body || {};
+        next();
+    },
+    authenticate,
+    authorize('admin'),
+    taskController.assignTaskToUser
+);
+
 module.exports = router;
