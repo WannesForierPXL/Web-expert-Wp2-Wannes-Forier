@@ -2,6 +2,7 @@ const {ValidationError, AuthorisationError, NotFoundError} = require("../errors/
 const uuid = require('uuid');
 
 const Task = require("../models/taskModel.js");
+const User = require("../models/userModel.js");
 
 async function findByUserId(requestingUserId) {
     if (!uuid.validate(requestingUserId)) {
@@ -44,4 +45,31 @@ async function findAll() {
     return Task.find({}).populate('userId', 'username');
 }
 
-module.exports = {findByUserId, updateTask, findAll};
+async function assignTask(taskId, userId) {
+    if (!uuid.validate(taskId)) {
+        throw new ValidationError('Task Id is not valid');
+    }
+    if (!uuid.validate(userId)) {
+        throw new ValidationError('User Id is not valid');
+    }
+
+    const task = await Task.findById(taskId);
+    if (!task) {
+        throw new NotFoundError('Task not found');
+    }
+
+    const user = await User.findById(userId);
+    if (!user) {
+        throw new NotFoundError('User not found');
+    }
+
+    if(!user.roles.includes('user')){
+        throw new ValidationError('Task can only be assigned to a user with role user');
+    }
+
+    task.userId = userId;
+    return task.save();
+
+}
+
+module.exports = {findByUserId, updateTask, findAll, assignTask};
