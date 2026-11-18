@@ -40,4 +40,8 @@ async function updateTask(taskId, requestingUserId, {completed, todo, userId}) {
     return task.save({validateBeforeSave: false});
 }
 
-module.exports = {findByUserId, updateTask};
+async function findAll() {
+    return Task.find({}).populate('userId', 'username');
+}
+
+module.exports = {findByUserId, updateTask, findAll};
