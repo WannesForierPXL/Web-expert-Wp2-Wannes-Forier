@@ -8,13 +8,15 @@ const uuid = require('uuid');
 const mongoose = require("mongoose");
 
 const loadExpress = require("../../loaders/express.js");
+const userService = require("../../services/userService");
+const taskService = require("../../services/taskService");
 const DATABASE_CONNECTION = process.env.DATABASE_CONNECTION_TEST;
 const DB_CONNECTION_OPTIONS = JSON.parse(process.env.DATABASE_CONNECTION_OPTIONS);
 const CORS_OPTIONS = JSON.parse(process.env.CORS_OPTIONS);
 
 const {usersIncludingPasswords, admin, tasks} = require("./data");
 
-let mongServer, uri, client, app;
+let mongoServer, uri, client, app, db;
 
 beforeAll(async () => {
     mongoServer = await MongoMemoryServer.create();
@@ -29,6 +31,10 @@ afterAll(async () => {
     await mongoose.connection.close();
     await mongoServer.stop();
     await client.close();
+});
+
+afterEach(() => {
+    jest.restoreAllMocks();
 });
 
 async function resetDatabase() {
@@ -46,9 +52,34 @@ async function resetDatabase() {
     await db.collection('tasks').insertMany(tasks);
 }
 
+async function loginAs({username, password}) {
+    const response = await request(app)
+        .post("/security/login")
+        .send({username, password});
+    return response.headers['set-cookie'].pop().split(';')[0];
+}
+
 describe("app", () => {
 
+    describe("unknown routes", () => {
+        it("should return statuscode 404 for a route that does not exist", async () => {
+            await resetDatabase();
+            const response = await request(app)
+                .get("/doesnotexist")
+                .expect(404);
+            expect(response.body.error.message).toMatch(/Route not found/);
+        });
+    });
+
     describe("POST /security/login", () => {
+        it("should return statuscode 400 when username and password are missing", async () => {
+            await resetDatabase();
+            await request(app)
+                .post("/security/login")
+                .send({})
+                .expect(400);
+        });
+
         usersIncludingPasswords.forEach((user, index) => {
             it(`should return statuscode 401 when an incorrect password is provided for user ${index + 1}`, async () => {
                 await resetDatabase();
@@ -94,7 +125,7 @@ describe("app", () => {
                 const cookie = response.headers['set-cookie'].pop().split(';')[0];
                 expect(cookie).toMatch(/^token=/);
                 const token = cookie.substring(6);
-                const checkResponse = await request(app)
+                await request(app)
                     .post("/security/login/check")
                     .set("Cookie", [`token=${token}`])
                     .send()
@@ -117,6 +148,26 @@ describe("app", () => {
         });
     });
 
+    describe("POST /security/logout", () => {
+        it("should return statuscode 401 if no token is provided", async () => {
+            await resetDatabase();
+            await request(app)
+                .post("/security/logout")
+                .expect(401);
+        });
+
+        it("should return statuscode 200 and clear the token cookie for a logged in user", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(usersIncludingPasswords[0]);
+            const response = await request(app)
+                .post("/security/logout")
+                .set("Cookie", [cookie])
+                .expect(200);
+            const clearedCookie = response.headers['set-cookie'].pop().split(';')[0];
+            expect(clearedCookie).toBe("token=");
+        });
+    });
+
     describe("GET /task/me", () => {
         usersIncludingPasswords.forEach((user, index) => {
             it(`should return statuscode 401 if no token is provided for user ${index + 1}`, async () => {
@@ -136,7 +187,7 @@ describe("app", () => {
                     .expect(401);
             });
 
-            it(`should return statuscode 401 when an invalid token is provided for user ${index + 1}`, async () => {
+            it(`should return statuscode 401 when a token with a wrong signature is provided for user ${index + 1}`, async () => {
                 await resetDatabase();
                 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30";
                 await request(app)
@@ -145,7 +196,6 @@ describe("app", () => {
                     .send()
                     .expect(401);
             });
-
 
             it(`should return statuscode 200 and the tasks when a valid token is provided for user ${index + 1}`, async () => {
                 await resetDatabase();
@@ -169,6 +219,15 @@ describe("app", () => {
                 expect(actualTaskIds.sort()).toEqual(expectedTaskIds.sort());
             });
         });
+
+        it("should return statuscode 403 when an admin requests own tasks", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .get("/task/me")
+                .set("Cookie", [cookie])
+                .expect(403);
+        });
     });
 
     describe("PATCH /task/:taskId", () => {
@@ -176,7 +235,7 @@ describe("app", () => {
             it(`should return statuscode 401 if no token is provided for task ${index + 1}`, async () => {
                 await resetDatabase();
                 await request(app)
-                    .patch(`/task/{index}`)
+                    .patch(`/task/${task._id}`)
                     .expect(401);
             });
 
@@ -184,17 +243,17 @@ describe("app", () => {
                 await resetDatabase();
                 const token = "invalidtoken";
                 await request(app)
-                    .patch(`/task/{index}`)
+                    .patch(`/task/${task._id}`)
                     .set("Cookie", [`token=${token}`])
                     .send()
                     .expect(401);
             });
 
-            it(`should return statuscode 401 when an invalid token is provided for task ${index + 1}`, async () => {
+            it(`should return statuscode 401 when a token with a wrong signature is provided for task ${index + 1}`, async () => {
                 await resetDatabase();
                 const token = "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJzdWIiOiIxMjM0NTY3ODkwIiwibmFtZSI6IkpvaG4gRG9lIiwiYWRtaW4iOnRydWUsImlhdCI6MTUxNjIzOTAyMn0.KMUFsIDTnFmyG3nMiGM6H9FNFUROf3wh7SmqJp-QV30";
                 await request(app)
-                    .patch(`/task/{index}`)
+                    .patch(`/task/${task._id}`)
                     .set("Cookie", [`token=${token}`])
                     .send()
                     .expect(401);
@@ -203,63 +262,72 @@ describe("app", () => {
             if (task.userId) {
                 it(`should return statuscode 200 and the updated task when a valid token is provided for task ${index + 1}`, async () => {
                     await resetDatabase();
-                    const user = usersIncludingPasswords.find(u => u._id.toString() === task.userId.toString())
-                    const {username, password} = user;
+                    const user = usersIncludingPasswords.find(u => u._id.toString() === task.userId.toString());
+                    const cookie = await loginAs(user);
                     const response = await request(app)
-                        .post("/security/login")
-                        .send({username, password});
-                    const responseUser = response.body;
-                    const cookie = response.headers['set-cookie'].pop().split(';')[0];
-                    expect(cookie).toMatch(/^token=/);
-                    const token = cookie.substring(6);
-                    const response2 = await request(app)
-                        .patch(`/task/${task._id.toString()}`)
-                        .set("Cookie", [`token=${token}`])
+                        .patch(`/task/${task._id}`)
+                        .set("Cookie", [cookie])
                         .send({completed: !task.completed})
-                        .expect(200)
-                    const updatedTask = response2.body;
-                    expect(updatedTask.completed).toBe(!task.completed)
+                        .expect(200);
+                    const updatedTask = response.body;
+                    expect(updatedTask.completed).toBe(!task.completed);
                 });
 
                 it(`should return statuscode 400 for invalid completed for task ${index + 1}`, async () => {
                     await resetDatabase();
-                    const user = usersIncludingPasswords.find(u => u._id.toString() === task.userId.toString())
-                    const {username, password} = user;
-                    const response = await request(app)
-                        .post("/security/login")
-                        .send({username, password});
-                    const responseUser = response.body;
-                    const cookie = response.headers['set-cookie'].pop().split(';')[0];
-                    expect(cookie).toMatch(/^token=/);
-                    const token = cookie.substring(6);
-                    const response2 = await request(app)
-                        .patch(`/task/${task._id.toString()}`)
-                        .set("Cookie", [`token=${token}`])
+                    const user = usersIncludingPasswords.find(u => u._id.toString() === task.userId.toString());
+                    const cookie = await loginAs(user);
+                    await request(app)
+                        .patch(`/task/${task._id}`)
+                        .set("Cookie", [cookie])
                         .send({completed: "invalid value"})
-                        .expect(400)
+                        .expect(400);
                 });
 
-
-                it(`should return statuscode 403 if a another user updates the task ${index + 1}`, async () => {
+                it(`should return statuscode 403 if another user updates the task ${index + 1}`, async () => {
                     await resetDatabase();
-                    const user = usersIncludingPasswords.find(u => u._id.toString() !== task.userId.toString())
-                    const {username, password} = user;
-                    const response = await request(app)
-                        .post("/security/login")
-                        .send({username, password});
-                    const responseUser = response.body;
-                    const cookie = response.headers['set-cookie'].pop().split(';')[0];
-                    expect(cookie).toMatch(/^token=/);
-                    const token = cookie.substring(6);
-                    const response2 = await request(app)
-                        .patch(`/task/${task._id.toString()}`)
-                        .set("Cookie", [`token=${token}`])
+                    const user = usersIncludingPasswords.find(u => u._id.toString() !== task.userId.toString());
+                    const cookie = await loginAs(user);
+                    await request(app)
+                        .patch(`/task/${task._id}`)
+                        .set("Cookie", [cookie])
                         .send({completed: true})
-                        .expect(403)
+                        .expect(403);
+                });
+            } else {
+                it(`should return statuscode 403 when a user updates a task without owner (task ${index + 1})`, async () => {
+                    await resetDatabase();
+                    const cookie = await loginAs(usersIncludingPasswords[0]);
+                    await request(app)
+                        .patch(`/task/${task._id}`)
+                        .set("Cookie", [cookie])
+                        .send({completed: true})
+                        .expect(403);
                 });
             }
         });
+
+        it("should return statuscode 400 when the taskId is not a valid uuid", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(usersIncludingPasswords[0]);
+            await request(app)
+                .patch("/task/abc")
+                .set("Cookie", [cookie])
+                .send({completed: true})
+                .expect(400);
+        });
+
+        it("should return statuscode 404 when the task does not exist", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(usersIncludingPasswords[0]);
+            await request(app)
+                .patch(`/task/${uuid.v4()}`)
+                .set("Cookie", [cookie])
+                .send({completed: true})
+                .expect(404);
+        });
     });
+
     describe("GET /user", () => {
         it("should return statuscode 401 if no token is provided", async () => {
             await resetDatabase();
@@ -279,11 +347,7 @@ describe("app", () => {
         usersIncludingPasswords.forEach((user, index) => {
             it(`should return statuscode 403 when a regular user requests all users (user ${index + 1})`, async () => {
                 await resetDatabase();
-                const {username, password} = user;
-                const response = await request(app)
-                    .post("/security/login")
-                    .send({username, password});
-                const cookie = response.headers['set-cookie'].pop().split(';')[0];
+                const cookie = await loginAs(user);
                 await request(app)
                     .get("/user")
                     .set("Cookie", [cookie])
@@ -293,21 +357,26 @@ describe("app", () => {
 
         it("should return statuscode 200 and all users without hashedPassword for an admin", async () => {
             await resetDatabase();
-            const {username, password} = admin;
+            const cookie = await loginAs(admin);
             const response = await request(app)
-                .post("/security/login")
-                .send({username, password});
-            const cookie = response.headers['set-cookie'].pop().split(';')[0];
-
-            const response2 = await request(app)
                 .get("/user")
                 .set("Cookie", [cookie])
                 .expect(200);
 
-            const actualIds = response2.body.map((u) => u._id).sort();
+            const actualIds = response.body.map((u) => u._id).sort();
             const expectedIds = [...usersIncludingPasswords, admin].map((u) => u._id).sort();
             expect(actualIds).toEqual(expectedIds);
-            response2.body.forEach((u) => expect(u).not.toHaveProperty('hashedPassword'));
+            response.body.forEach((u) => expect(u).not.toHaveProperty('hashedPassword'));
+        });
+
+        it("should return statuscode 500 when an unexpected error occurs", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            jest.spyOn(userService, 'findAll').mockRejectedValue(new Error('Database unavailable'));
+            await request(app)
+                .get("/user")
+                .set("Cookie", [cookie])
+                .expect(500);
         });
     });
 
@@ -322,11 +391,7 @@ describe("app", () => {
         usersIncludingPasswords.forEach((user, index) => {
             it(`should return statuscode 403 when a regular user requests all tasks (user ${index + 1})`, async () => {
                 await resetDatabase();
-                const {username, password} = user;
-                const response = await request(app)
-                    .post("/security/login")
-                    .send({username, password});
-                const cookie = response.headers['set-cookie'].pop().split(';')[0];
+                const cookie = await loginAs(user);
                 await request(app)
                     .get("/task")
                     .set("Cookie", [cookie])
@@ -336,18 +401,13 @@ describe("app", () => {
 
         it("should return statuscode 200 and all tasks with populated username for an admin", async () => {
             await resetDatabase();
-            const {username, password} = admin;
+            const cookie = await loginAs(admin);
             const response = await request(app)
-                .post("/security/login")
-                .send({username, password});
-            const cookie = response.headers['set-cookie'].pop().split(';')[0];
-
-            const response2 = await request(app)
                 .get("/task")
                 .set("Cookie", [cookie])
                 .expect(200);
 
-            const actualTasks = response2.body;
+            const actualTasks = response.body;
             expect(actualTasks.map((t) => t._id).sort())
                 .toEqual(tasks.map((t) => t._id).sort());
 
@@ -361,16 +421,19 @@ describe("app", () => {
                 }
             });
         });
+
+        it("should return statuscode 500 when an unexpected error occurs", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            jest.spyOn(taskService, 'findAll').mockRejectedValue(new Error('Database unavailable'));
+            await request(app)
+                .get("/task")
+                .set("Cookie", [cookie])
+                .expect(500);
+        });
     });
 
     describe("PATCH /task/:taskId/user", () => {
-        async function loginAs({username, password}) {
-            const response = await request(app)
-                .post("/security/login")
-                .send({username, password});
-            return response.headers['set-cookie'].pop().split(';')[0];
-        }
-
         const unassignedTask = tasks[2];
         const targetUser = usersIncludingPasswords[1];
 
@@ -404,6 +467,18 @@ describe("app", () => {
             expect(response.body.userId).toBe(targetUser._id);
         });
 
+        it("should store the assignment in the database", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch(`/task/${unassignedTask._id}/user`)
+                .set("Cookie", [cookie])
+                .send({userId: targetUser._id})
+                .expect(200);
+            const storedTask = await db.collection('tasks').findOne({_id: unassignedTask._id});
+            expect(storedTask.userId).toBe(targetUser._id);
+        });
+
         it("should return statuscode 200 when an admin reassigns an already assigned task", async () => {
             await resetDatabase();
             const cookie = await loginAs(admin);
@@ -413,6 +488,16 @@ describe("app", () => {
                 .send({userId: targetUser._id})
                 .expect(200);
             expect(response.body.userId).toBe(targetUser._id);
+        });
+
+        it("should return statuscode 400 when taskId is not a valid uuid", async () => {
+            await resetDatabase();
+            const cookie = await loginAs(admin);
+            await request(app)
+                .patch("/task/abc/user")
+                .set("Cookie", [cookie])
+                .send({userId: targetUser._id})
+                .expect(400);
         });
 
         it("should return statuscode 400 when userId is not a valid uuid", async () => {

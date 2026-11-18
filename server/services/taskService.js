@@ -24,7 +24,7 @@ async function updateTask(taskId, requestingUserId, {completed, todo, userId}) {
     if (!task) {
         throw new NotFoundError('Task not found');
     }
-    if (requestingUserId.toString() !== task.userId.toString()) {
+    if (!task.userId || requestingUserId.toString() !== task.userId.toString()) {
         throw new AuthorisationError('User is not the owner of the task');
     }
 
