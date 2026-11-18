@@ -23,4 +23,12 @@ router.patch("/:taskId",
     authorize('user'),
     taskController.updateTaskCompletion
 );
+
+router.get("/all",
+    cookieParser(),
+    authenticate,
+    authorize('admin'),
+    taskController.getAllTasks
+);
+
 module.exports = router;

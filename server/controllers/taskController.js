@@ -9,7 +9,7 @@ async function getTasksOfUser (req, res, next) {
     } catch (err) {
         next(err);
     }
-};
+}
 
 async function updateTaskCompletion (req, res, next) {
     try {
@@ -22,13 +22,13 @@ async function updateTaskCompletion (req, res, next) {
     } catch (err) {
         next(err);
     }
-};
+}
 
 async function getAllTasks(req, res, next) {
     try {
         const status = 200;
-        const users = await taskService.findAll();
-        res.status(status).json(users);
+        const tasks = await taskService.findAll();
+        res.status(status).json(tasks);
     } catch (err) {
         next(err);
     }
