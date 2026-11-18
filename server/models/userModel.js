@@ -1,5 +1,6 @@
 const mongoose = require('mongoose');
 const bcrypt = require('bcryptjs');
+const uuid = require('uuid');
 
 const userSchema = new mongoose.Schema(
     {
@@ -25,6 +26,17 @@ const userSchema = new mongoose.Schema(
         hashedPassword: {
             type: String,
             required: true
+        },
+        _id: {
+            type: String,
+            required: true,
+            default: uuid.v4,
+            validate: {
+                validator: function (value) {
+                    return uuid.validate(value);
+                },
+                message: (props) => `${props.value} is not a valid uuid.`
+            }
         }
     },
     {collection: 'users'}

@@ -1,4 +1,6 @@
 const mongoose = require('mongoose');
+const uuid = require('uuid');
+
 const taskSchema = new mongoose.Schema(
     {
         todo: {
@@ -17,8 +19,25 @@ const taskSchema = new mongoose.Schema(
             default: false
         },
         userId: {
-            type: mongoose.Schema.Types.ObjectId,
-            ref: 'User'
+            type: String,
+            ref: 'User',
+            validate: {
+                validator: function (value) {
+                    return uuid.validate(value);
+                },
+                message: (props) => `${props.value} is not a valid uuid.`
+            }
+        },
+        _id: {
+            type: String,
+            required: true,
+            default: uuid.v4,
+            validate: {
+                validator: function (value) {
+                    return uuid.validate(value);
+                },
+                message: (props) => `${props.value} is not a valid uuid.`
+            }
         }
     },
     {
